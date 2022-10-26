@@ -2,7 +2,7 @@ import { CreateListingWizardBuilder } from "./CreateListingWizardBuilder";
 import { Currency, Listing, ListingCategory } from "./types";
 import { Ctx } from "../telegraf/Context";
 
-export function buildCreateWizard(
+export function createListingWizardScene(
   id: string,
   onFinish: (ctx: Ctx, listing?: Listing) => Promise<unknown> | unknown,
 ) {
@@ -51,7 +51,7 @@ export function buildCreateWizard(
         return Boolean(photos) && photos!.length > 0;
       },
       (ctx, photosSizes) => {
-        const first = photosSizes[0];
+        const first = photosSizes[0]!;
         ctx.scene.session.listing.photos!.push(first.file_id);
       },
       "Скинь хоча б одну",

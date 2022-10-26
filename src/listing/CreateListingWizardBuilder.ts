@@ -83,7 +83,7 @@ export class CreateListingWizardBuilder {
 
     for (let i = 0; i < this.steps.length; i++) {
       const prevStep = this.steps[i - 1];
-      const step = this.steps[i];
+      const step = this.steps[i]!;
       const nextStep = this.steps[i + 1];
       scene.steps.push(this.createHandler(prevStep, step, nextStep));
     }

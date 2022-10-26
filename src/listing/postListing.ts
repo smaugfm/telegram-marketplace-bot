@@ -1,6 +1,7 @@
 import { Telegram } from "telegraf";
 import { Listing } from "./types";
 import { markdownv2 as fmt } from "telegram-format";
+import { InputMediaPhoto } from "telegraf/types";
 
 export async function postListing(telegram: Telegram, chatId: number, rawListing: Listing) {
   const listing = sanitizeMarkdownV2(rawListing);
@@ -21,7 +22,7 @@ ${listing.description}
   } else {
     const messages = await sendMessage(telegram, chatId, listing.photos, caption);
     await telegram.sendMessage(chatId, listing.description, {
-      reply_to_message_id: messages?.[0]?.message_id,
+      reply_to_message_id: messages[0]!.message_id,
     });
   }
 }
@@ -34,12 +35,15 @@ async function sendMessage(
 ) {
   return await telegram.sendMediaGroup(
     chatId,
-    photos.map((x, i) => ({
-      type: "photo",
-      media: x.toString(),
-      caption: i === 0 ? caption : undefined,
-      parse_mode: "MarkdownV2",
-    })),
+    photos.map(
+      (x, i) =>
+        ({
+          type: "photo",
+          media: x.toString(),
+          caption: i === 0 ? caption : undefined,
+          parse_mode: "MarkdownV2",
+        } as InputMediaPhoto),
+    ),
   );
 }
 
