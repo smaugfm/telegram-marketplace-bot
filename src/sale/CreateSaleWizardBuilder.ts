@@ -2,8 +2,9 @@ import { Composer, Markup, Middleware, Scenes } from "telegraf";
 import { PhotoSize } from "telegraf/typings/core/types/typegram";
 import { Ctx } from "../telegraf/Context";
 import { SceneOptions } from "telegraf/typings/scenes/base";
+import _ from "lodash";
 
-export class CreateListingWizardBuilder {
+export class CreateSaleWizardBuilder {
   private readonly steps: Step[] = [];
   private readonly enter: (ctx: Ctx) => Promise<unknown> | unknown;
 
@@ -51,7 +52,7 @@ export class CreateListingWizardBuilder {
     enter: string,
     finishButton: string,
     isEnoughPhotos: (ctx: Ctx) => boolean,
-    onPhoto: OnNext<PhotoSize[]>,
+    onPhoto: OnNext<PhotoSize>,
     notEnoughPhotos: string,
     error: string,
   ) {
@@ -90,7 +91,7 @@ export class CreateListingWizardBuilder {
 
     scene.leave((ctx, next) => {
       onFinish(ctx, ctx.wizard.cursor + 1 < (ctx.wizard["steps"] as Array<unknown>).length);
-      ctx.scene.session.listing = {};
+      ctx.scene.session.sale = {};
       return next();
     });
 
@@ -140,12 +141,16 @@ export class CreateListingWizardBuilder {
             }
           });
           handler.on("photo", async ctx => {
-            await step.onPhoto(ctx, ctx.message.photo);
+            await step.onPhoto(ctx, this.getBiggestPhotoSize(ctx.message.photo)!);
           });
         });
       default:
         throw new Error("Unknown step type " + step);
     }
+  }
+
+  private getBiggestPhotoSize(photoSizes: PhotoSize[]): PhotoSize | undefined {
+    return _.maxBy(photoSizes, x => x.file_size);
   }
 
   private createBaseHandler(step: BaseStep, main: (handler: Composer<Ctx>) => void) {
@@ -233,7 +238,7 @@ interface EnumStep extends BaseStep {
 
 interface PhotosStep extends BaseStep {
   type: "photos";
-  onPhoto: OnNext<PhotoSize[]>;
+  onPhoto: OnNext<PhotoSize>;
   isEnoughPhotos: (ctx: Ctx) => boolean;
   notEnoughPhotos: string;
   finishButton: string;

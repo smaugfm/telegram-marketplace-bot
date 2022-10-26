@@ -1,10 +1,10 @@
 import { Context, Scenes } from "telegraf";
-import { Listing } from "../listing/types";
+import {Sale} from "../sale/types";
 
 export interface CtxSceneSession extends Scenes.WizardSessionData {
-  listing: Partial<Listing>;
+  sale: Partial<Sale>;
   state: {
-    user: Listing["user"];
+    user: Sale["user"];
   };
 }
 
