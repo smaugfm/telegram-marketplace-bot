@@ -1,5 +1,5 @@
 const path = require("path");
-const {CleanWebpackPlugin} = require("clean-webpack-plugin");
+const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -10,9 +10,7 @@ const config = {
   },
   target: "node",
   devtool: "source-map",
-  plugins: [
-    new CleanWebpackPlugin(),
-  ],
+  plugins: [new CleanWebpackPlugin()],
   module: {
     rules: [
       {
