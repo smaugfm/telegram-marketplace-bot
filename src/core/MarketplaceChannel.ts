@@ -3,13 +3,13 @@ import { markdownv2 as fmt } from "telegram-format";
 import { InputMediaPhoto } from "telegraf/types";
 import { Sale } from "../sale/types";
 import { MessageLayout, PostedMessages } from "./types";
-import { ChatId } from "../util";
+import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
 
-export class MarketplaceChannelManager {
+export class MarketplaceChannel {
   private readonly tg: Telegram;
-  private readonly chatId: number | string;
+  private readonly chatId: number;
 
-  constructor(telegram: Telegram, chatId: ChatId) {
+  constructor(telegram: Telegram, chatId: number) {
     this.tg = telegram;
     this.chatId = chatId;
   }
@@ -26,6 +26,18 @@ export class MarketplaceChannelManager {
 
   async remove(posted: PostedMessages): Promise<void> {
     return await this.removeMessages(posted);
+  }
+
+  forwardTo(posted: PostedMessages, targetChatId: number) {
+    return this.tg.forwardMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!);
+  }
+
+  copyTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
+    return this.tg.copyMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!, extra);
+  }
+
+  isChatIdEqualToChannel(chatId: number) {
+    return this.chatId === chatId;
   }
 
   async post(sale: Sale): Promise<PostedMessages> {
@@ -137,7 +149,7 @@ ${fmt.escape(sanitizedSale.description)}
 
   private sendMediaGroupWithCaption(
     telegram: Telegram,
-    chatId: ChatId,
+    chatId: number,
     photos: Sale["photos"],
     caption: string,
   ) {

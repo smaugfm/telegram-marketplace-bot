@@ -1,10 +1,16 @@
 import { Context, Scenes } from "telegraf";
-import {Sale} from "../sale/types";
+import { Sale } from "../sale/types";
+import { PostedMessages } from "../core/types";
 
 export interface CtxSceneSession extends Scenes.WizardSessionData {
-  sale: Partial<Sale>;
   state: {
-    user: Sale["user"];
+    createWizard: {
+      sale: Partial<Sale>;
+    };
+    markAsSoldUnsoldScene: {
+      currentPosted: PostedMessages[];
+      saleIds: number[];
+    };
   };
 }
 

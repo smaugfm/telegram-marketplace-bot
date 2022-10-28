@@ -5,29 +5,20 @@ import { Scenes, Telegraf } from "telegraf";
 import LocalSession from "telegraf-session-local";
 import { Ctx } from "./telegraf/Context";
 import { log } from "./log/log";
-import { createSaleWizardScene } from "./sale/createSaleWizardScene";
-import { MarketplaceChannelManager } from "./core/MarketplaceChannelManager";
-import { testSale } from "./util";
-import { PostedMessages } from "./core/types";
+import { MarketplaceChannel } from "./core/MarketplaceChannel";
+import { userInteractionMiddleware } from "./middleware/user/userInteractionMiddleware";
+import { SalesManager } from "./core/SalesManager";
+import { Storage } from "./core/Storage";
 
 config();
 
 const bot = new Telegraf<Ctx>(process.env["BOT_TOKEN"]!);
-const channelManager = new MarketplaceChannelManager(
+const channel = new MarketplaceChannel(
   bot.telegram,
-  process.env["MARKETPLACE_CHANNEL_ID"]!,
+  parseInt(process.env["MARKETPLACE_CHANNEL_ID"]!, 10),
 );
-
-const createWizardId = "createSaleWizard";
-const createWizard = createSaleWizardScene(createWizardId, async (ctx, sale) => {
-  if (!sale) {
-    log.info("Form cancelled");
-  } else {
-    await channelManager.post(sale);
-  }
-});
-
-const stage = new Scenes.Stage<Ctx>([createWizard]);
+const sales = new SalesManager(5, new Storage(), channel);
+const stage = new Scenes.Stage<Ctx>();
 
 bot.use(new LocalSession({ database: "session.json" }).middleware());
 bot.use((ctx, next) => {
@@ -35,27 +26,24 @@ bot.use((ctx, next) => {
   return next();
 });
 bot.use(stage.middleware());
-
-bot.command("new", ctx =>
-  ctx.scene.enter(createWizardId, { user: { id: ctx.from.id, username: ctx.from.username } }),
-);
-
-let posted: PostedMessages | undefined;
-
-bot.hears("post", async ctx => {
-  posted = await channelManager.post(testSale);
-});
-
-bot.hears("sold", async ctx => {
-  await channelManager.markSold(posted!, testSale);
-});
-
-bot.hears("unsold", async ctx => {
-  await channelManager.markUnsold(posted!, testSale);
-});
-
-bot.hears("remove", async ctx => {
-  await channelManager.remove(posted!);
-});
+bot.use(userInteractionMiddleware(stage, sales));
+//
+// let posted: PostedMessages | undefined;
+//
+// bot.hears("post", async ctx => {
+//   posted = await channel.post(testSale);
+// });
+//
+// bot.hears("sold", async ctx => {
+//   await channel.markSold(posted!, testSale);
+// });
+//
+// bot.hears("unsold", async ctx => {
+//   await channel.markUnsold(posted!, testSale);
+// });
+//
+// bot.hears("remove", async ctx => {
+//   await channel.remove(posted!);
+// });
 
 await bot.launch();

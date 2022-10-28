@@ -1,14 +1,14 @@
 import { Composer, Markup, Middleware, Scenes } from "telegraf";
 import { PhotoSize } from "telegraf/typings/core/types/typegram";
-import { Ctx } from "../telegraf/Context";
+import { Ctx } from "./Context";
 import { SceneOptions } from "telegraf/typings/scenes/base";
 import _ from "lodash";
 
 export class CreateSaleWizardBuilder {
   private readonly steps: Step[] = [];
-  private readonly enter: (ctx: Ctx) => Promise<unknown> | unknown;
+  private readonly enter: ((ctx: Ctx) => Promise<unknown> | unknown) | undefined;
 
-  constructor(enter: (ctx: Ctx) => Promise<unknown> | unknown) {
+  constructor(enter?: (ctx: Ctx) => Promise<unknown> | unknown) {
     this.enter = enter;
   }
 
@@ -76,7 +76,7 @@ export class CreateSaleWizardBuilder {
 
     const scene = new Scenes.WizardScene<Ctx>(id, {} as SceneOptions<Ctx>);
     scene.enter(async ctx => {
-      await this.enter(ctx);
+      await this.enter?.(ctx);
       return this.next(ctx, undefined, undefined, this.steps[0], () => {
         // do nothing
       });
@@ -91,7 +91,6 @@ export class CreateSaleWizardBuilder {
 
     scene.leave((ctx, next) => {
       onFinish(ctx, ctx.wizard.cursor + 1 < (ctx.wizard["steps"] as Array<unknown>).length);
-      ctx.scene.session.sale = {};
       return next();
     });
 

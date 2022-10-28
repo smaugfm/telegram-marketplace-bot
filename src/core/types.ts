@@ -1,18 +1,5 @@
 import { Sale } from "../sale/types";
 
-export type TimeOfDaySchedule = OncePerDay;
-export type OncePerDay = {
-  type: "once";
-  hour: number;
-  minute: number;
-};
-
-export type DayToDaySchedule = EveryNthDay;
-export type EveryNthDay = {
-  type: "everyNthDay";
-  nth: number;
-};
-
 export type PostedMessages = {
   photoMessageIds: number[];
   mediaGroupId: string | undefined;
@@ -25,7 +12,7 @@ export type ManagedSale = Readonly<{
 
   posted: PostedMessages;
 
-  sold: boolean;
+  soldAt: number;
   removed: boolean;
 }>;
 
