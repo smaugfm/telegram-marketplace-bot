@@ -29,8 +29,10 @@ export class MarketplaceChannel {
     return await this.removeMessages(posted);
   }
 
-  forwardTo(posted: PostedMessages, targetChatId: number) {
-    return this.tg.forwardMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!);
+  async forwardToIncludingSeparateDescription(posted: PostedMessages, targetChatId: number) {
+    await this.tg.forwardMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!);
+    if (posted.separateDescriptionMessageId)
+      await this.tg.forwardMessage(targetChatId, this.chatId, posted.separateDescriptionMessageId);
   }
 
   copyTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {

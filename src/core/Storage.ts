@@ -19,14 +19,18 @@ export class Storage {
   }
 
   private read(filename: string): DbSchema {
+    let read: Partial<DbSchema> = {};
     if (fsSync.existsSync(filename)) {
-      return JSON.parse(fsSync.readFileSync(filename, "utf-8"));
-    } else {
-      return {
+      read = JSON.parse(fsSync.readFileSync(filename, "utf-8"));
+    }
+
+    return Object.assign(
+      {
         sales: [],
         idCounter: 0,
-      };
-    }
+      },
+      read,
+    );
   }
 
   private get chain() {

@@ -46,7 +46,7 @@ export function createMarkAsSoldUnsoldScene(
       try {
         const sale = await sales.markSoldUnsold(saleId, sold);
         if (sale) {
-          await sales.forwardTo(sale.posted, ctx.from!.id);
+          await sales.forwardToIncludingSeparateDescription(sale.posted, ctx.from!.id);
           return ctx.scene.leave();
         } else {
           return ctx.reply(

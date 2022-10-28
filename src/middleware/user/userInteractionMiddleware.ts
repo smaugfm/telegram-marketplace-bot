@@ -24,7 +24,7 @@ export function userInteractionMiddleware(
               "виставляти більше оголошень не можна. " +
               "Видали якесь поточне оголошення щоб виставити нове.",
           );
-        await sales.forwardTo(managedSale.posted, ctx.from!.id);
+        await sales.forwardToIncludingSeparateDescription(managedSale.posted, ctx.from!.id);
       }
       return undefined;
     }),
@@ -43,7 +43,7 @@ export function userInteractionMiddleware(
   handler.command("newtest", async ctx => {
     if (ctx.from.id.toString(10) === process.env["DEV_CHAT_ID"]) {
       const managedSale = await sales.addNewSale(testSale);
-      await sales.forwardTo(managedSale!.posted, ctx.from!.id);
+      await sales.forwardToIncludingSeparateDescription(managedSale!.posted, ctx.from!.id);
     }
   });
 
@@ -52,7 +52,11 @@ export function userInteractionMiddleware(
       return replyNoAccessToChannel(ctx);
     }
     const managedSales = await sales.getActiveSales(ctx.from.id);
-    return Promise.all(managedSales.map(x => sales.forwardTo(x.posted, ctx.from.id)));
+    if (managedSales.length > 0)
+      return Promise.all(managedSales.map(x => sales.forwardToIncludingSeparateDescription(x.posted, ctx.from.id)));
+    else {
+      return ctx.reply("У тебе нема активних оголошень");
+    }
   });
 
   handler.command("sold", async ctx => {

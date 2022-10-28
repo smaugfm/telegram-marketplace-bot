@@ -5,7 +5,7 @@ export function epochDays(days: number): number {
 }
 
 export function epochMinutes(minutes: number): number {
-  return minutes * 60 * 60 * 1000;
+  return minutes * 60 * 1000;
 }
 
 export const testSale: Sale = {

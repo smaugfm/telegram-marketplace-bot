@@ -32,8 +32,8 @@ export class SalesManager {
     return this.storage.getSales(userId, includeSold, false);
   }
 
-  async forwardTo(posted: PostedMessages, targetChatId: number) {
-    return this.channel.forwardTo(posted, targetChatId);
+  async forwardToIncludingSeparateDescription(posted: PostedMessages, targetChatId: number) {
+    return this.channel.forwardToIncludingSeparateDescription(posted, targetChatId);
   }
 
   async copyTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
