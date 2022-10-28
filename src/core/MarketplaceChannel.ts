@@ -4,6 +4,7 @@ import { InputMediaPhoto } from "telegraf/types";
 import { Sale } from "../sale/types";
 import { MessageLayout, PostedMessages } from "./types";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
+import { log } from "../log/log";
 
 export class MarketplaceChannel {
   private readonly tg: Telegram;
@@ -36,13 +37,29 @@ export class MarketplaceChannel {
     return this.tg.copyMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!, extra);
   }
 
-  isChatIdEqualToChannel(chatId: number) {
-    return this.chatId === chatId;
+  async userHasAdminRightsToChannel(userId: number) {
+    const acceptableStatuses = ["member", "creator", "administrator"];
+    return await this.hasMemberStatus(userId, acceptableStatuses);
+  }
+
+  async userHasAccessToChannel(userId: number) {
+    const acceptableStatuses = ["member", "creator", "administrator"];
+    return await this.hasMemberStatus(userId, acceptableStatuses);
   }
 
   async post(sale: Sale): Promise<PostedMessages> {
     const layout = this.getSaleMessageLayout(sale, false);
     return await this.postLayout(layout);
+  }
+
+  private async hasMemberStatus(userId: number, acceptableStatuses: string[]) {
+    try {
+      const member = await this.tg.getChatMember(this.chatId, userId);
+      return member && acceptableStatuses.includes(member.status);
+    } catch (e) {
+      log.error("Unexpected error: ", e);
+      return false;
+    }
   }
 
   private async editLayout(layout: MessageLayout, posted: PostedMessages, sold: boolean) {

@@ -34,6 +34,10 @@ export function userInteractionMiddleware(
 
   const handler = new Composer<Ctx>();
   handler.command("new", async ctx => {
+    if (!(await sales.userHasAccessToChannel(ctx.from.id))) {
+      return replyNoAccessToChannel(ctx);
+    }
+
     return await newSaleHandler(sales, ctx);
   });
   handler.command("newtest", async ctx => {
@@ -44,19 +48,35 @@ export function userInteractionMiddleware(
   });
 
   handler.command("list", async ctx => {
+    if (!(await sales.userHasAccessToChannel(ctx.from.id))) {
+      return replyNoAccessToChannel(ctx);
+    }
     const managedSales = await sales.getActiveSales(ctx.from.id);
     return Promise.all(managedSales.map(x => sales.forwardTo(x.posted, ctx.from.id)));
   });
 
   handler.command("sold", async ctx => {
+    if (!(await sales.userHasAccessToChannel(ctx.from.id))) {
+      return replyNoAccessToChannel(ctx);
+    }
     return await markAsSoldUnsoldHandler(ctx, sales, true);
   });
 
   handler.command("unsold", async ctx => {
+    if (!(await sales.userHasAccessToChannel(ctx.from.id))) {
+      return replyNoAccessToChannel(ctx);
+    }
     return await markAsSoldUnsoldHandler(ctx, sales, false);
   });
 
   return handler;
+}
+
+function replyNoAccessToChannel(ctx: Ctx) {
+  return ctx.reply(
+    "Щоб створювати нові оголошення і взємодіяти з цим ботом ти маєш бути у каналі " +
+      process.env["MARKETPLACE_CHANNEL_NAME"],
+  );
 }
 
 async function newSaleHandler(sales: SalesManager, ctx: NarrowedContext<Ctx, MountMap["text"]>) {

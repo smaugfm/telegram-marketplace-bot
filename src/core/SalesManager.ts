@@ -16,6 +16,14 @@ export class SalesManager {
     this.channel = channel;
   }
 
+  async userHasAdminRightsToChannel(userId: number): Promise<boolean> {
+    return this.channel.userHasAdminRightsToChannel(userId);
+  }
+
+  async userHasAccessToChannel(userId: number): Promise<boolean> {
+    return this.channel.userHasAccessToChannel(userId);
+  }
+
   async canAddAnotherSale(userId: number): Promise<boolean> {
     return (await this.getActiveSales(userId)).length < this.maxSalesPerUser;
   }
