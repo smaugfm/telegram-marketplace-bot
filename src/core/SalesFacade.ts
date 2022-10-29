@@ -4,6 +4,7 @@ import { Storage } from "./Storage";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
 import { epochDays, epochMinutes } from "../util";
 import { Marketplace } from "./interface/Marketplace";
+import { log } from "../log/log";
 
 export class SalesFacade {
   public readonly maxSalesPerUser: number;
@@ -25,7 +26,19 @@ export class SalesFacade {
   }
 
   async getActiveSales(userId: number, includeSold = false): Promise<ManagedSale[]> {
-    return this.storage.getSales(userId, includeSold, false);
+    const sales = await this.storage.getSales(userId, includeSold, false);
+    const exists = await Promise.all(
+      sales.map(async sale => {
+        if (!(await this.channel.checkExists(sale.posted))) {
+          log.warn("Message was deleted externally: ", sale);
+          await this.storage.modifySale(sale.id, { removed: true });
+          return false;
+        }
+        return true;
+      }),
+    );
+
+    return sales.filter((s, i) => exists[i]);
   }
 
   async forwardToIncludingSeparateDescription(posted: PostedMessages, targetChatId: number) {

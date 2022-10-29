@@ -13,6 +13,8 @@ export interface Marketplace {
 
   forwardTo(posted: PostedMessages, targetChatId: number): Promise<unknown>;
 
+  checkExists(posted: PostedMessages): Promise<boolean>;
+
   copyFirstTo(
     posted: PostedMessages,
     targetChatId: number,

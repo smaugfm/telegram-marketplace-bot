@@ -16,6 +16,7 @@ const bot = new Telegraf<Ctx>(process.env["BOT_TOKEN"]!);
 const channel = new MarketplaceChannel(
   bot.telegram,
   parseInt(process.env["MARKETPLACE_CHANNEL_ID"]!, 10),
+  parseInt(process.env["SERVICE_CHANNEL_ID"]!, 10),
 );
 const facade = new SalesFacade(
   parseInt(process.env["MAX_SALES_PER_USER"]!, 10),

@@ -1,4 +1,4 @@
-import { Telegram } from "telegraf";
+import { Telegram, TelegramError } from "telegraf";
 import { markdownv2 as fmt } from "telegram-format";
 import { InputMediaPhoto } from "telegraf/types";
 import { Sale } from "../sale/types";
@@ -10,10 +10,12 @@ import { Marketplace } from "./interface/Marketplace";
 export class MarketplaceChannel implements Marketplace {
   private readonly tg: Telegram;
   private readonly chatId: number;
+  private serviceChatId: number;
 
-  constructor(telegram: Telegram, chatId: number) {
+  constructor(telegram: Telegram, chatId: number, serviceChatId: number) {
     this.tg = telegram;
     this.chatId = chatId;
+    this.serviceChatId = serviceChatId;
   }
 
   async markSold(posted: PostedMessages, sale: Sale): Promise<void> {
@@ -31,9 +33,35 @@ export class MarketplaceChannel implements Marketplace {
   }
 
   async forwardTo(posted: PostedMessages, targetChatId: number) {
-    await this.tg.forwardMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!);
+    await this.forwardToInternal(targetChatId, posted);
+  }
+
+  private async forwardToInternal(targetChatId: number, posted: PostedMessages, silent = false) {
+    await this.tg.forwardMessage(
+      targetChatId,
+      this.chatId,
+      posted.photoMessageIds[0]!,
+      silent ? { disable_notification: true } : undefined,
+    );
     if (posted.separateDescriptionMessageId)
-      await this.tg.forwardMessage(targetChatId, this.chatId, posted.separateDescriptionMessageId);
+      await this.tg.forwardMessage(
+        targetChatId,
+        this.chatId,
+        posted.separateDescriptionMessageId,
+        silent ? { disable_notification: true } : undefined,
+      );
+  }
+
+  async checkExists(posted: PostedMessages) {
+    try {
+      await this.forwardToInternal(this.serviceChatId, posted, true);
+      return true;
+    } catch (e) {
+      if (e instanceof TelegramError) {
+        return false;
+      }
+      throw e;
+    }
   }
 
   copyFirstTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
