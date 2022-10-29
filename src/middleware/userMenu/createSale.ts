@@ -5,11 +5,14 @@ import { NarrowedContext } from "telegraf";
 import { Ctx } from "../../telegraf/Context";
 import { MountMap } from "telegraf/typings/telegram-types";
 import { replyNoAccessToChannel } from "./util";
-import {testSale} from "../../util";
+import { testSale } from "../../util";
 
 const createWizardId = "createSaleWizard";
 
-export async function createSaleHandler(facade: SalesFacade, ctx: NarrowedContext<Ctx, MountMap["text"]>) {
+export async function createSaleHandler(
+  facade: SalesFacade,
+  ctx: NarrowedContext<Ctx, MountMap["text"]>,
+) {
   if (!(await facade.userHasAccessToChannel(ctx.from.id))) {
     return replyNoAccessToChannel(ctx);
   }
@@ -104,10 +107,18 @@ export function createSaleScene(facade: SalesFacade) {
     });
 }
 
-export async function createSaleTestHandler(ctx: NarrowedContext<Ctx, MountMap["text"]>, facade: SalesFacade) {
-  if (ctx.from.id.toString(10) === process.env["DEV_CHAT_ID"]) {
-    const managedSale = await facade.addNewSale(testSale);
+export async function createSaleTestHandler(
+  ctx: NarrowedContext<Ctx, MountMap["text"]>,
+  facade: SalesFacade,
+) {
+  if (ctx.from.id.toString(10) === process.env["TEST_SALE_CHAT_ID"]) {
+    const managedSale = await facade.addNewSale({
+      ...testSale,
+      user: {
+        id: parseInt(process.env["TEST_SALE_CHAT_ID"]!, 10),
+        username: process.env["TEST_SALE_USERNAME"]!,
+      },
+    });
     await facade.forwardToIncludingSeparateDescription(managedSale!.posted, ctx.from!.id);
   }
 }
-
