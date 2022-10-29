@@ -2,9 +2,10 @@ import { SalesFacade } from "../../core/SalesFacade";
 import { Markup, NarrowedContext, Scenes } from "telegraf";
 import { Ctx } from "../../telegraf/Context";
 import { log } from "../../log/log";
-import { SaleNotExistError } from "../../core/SaleNotExistError";
 import { MountMap } from "telegraf/typings/telegram-types";
 import { replyNoAccessToChannel } from "./util";
+import { SaleNotExistError } from "../../core/errors/SaleNotExistError";
+import { MessageDoesNotExistError } from "../../core/errors/MessageDoesNotExistError";
 
 const markAsSoldSceneId = "markAsSoldScene";
 const markAsUnsoldSceneId = "markAsUnsoldScene";
@@ -32,10 +33,7 @@ export async function markAsSoldUnsoldHandler(
   });
 }
 
-export function markAsSoldUnsoldScene(
-  facade: SalesFacade,
-  sold: boolean,
-) {
+export function markAsSoldUnsoldScene(facade: SalesFacade, sold: boolean) {
   const scene = new Scenes.BaseScene<Ctx>(sold ? markAsSoldSceneId : markAsUnsoldSceneId);
   scene.enter(async ctx => {
     await ctx.reply(
@@ -81,9 +79,10 @@ export function markAsSoldUnsoldScene(
           );
         }
       } catch (e) {
-        if (e instanceof SaleNotExistError) {
-          return next();
+        if (e instanceof SaleNotExistError || e instanceof MessageDoesNotExistError) {
+          return ctx.reply("Нажаль виглядає так що оголошення було видалене");
         }
+        throw e;
       }
     } else {
       log.error("Passed saleId not from the fetched list: Original query: ", ctx.callbackQuery);

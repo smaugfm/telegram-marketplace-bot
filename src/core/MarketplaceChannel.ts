@@ -6,6 +6,7 @@ import { MessageLayout, PostedMessages } from "./types";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
 import { log } from "../log/log";
 import { Marketplace } from "./interface/Marketplace";
+import { MessageDoesNotExistError } from "./errors/MessageDoesNotExistError";
 
 export class MarketplaceChannel implements Marketplace {
   private readonly tg: Telegram;
@@ -37,19 +38,26 @@ export class MarketplaceChannel implements Marketplace {
   }
 
   private async forwardToInternal(targetChatId: number, posted: PostedMessages, silent = false) {
-    await this.tg.forwardMessage(
-      targetChatId,
-      this.chatId,
-      posted.photoMessageIds[0]!,
-      silent ? { disable_notification: true } : undefined,
-    );
-    if (posted.separateDescriptionMessageId)
+    try {
       await this.tg.forwardMessage(
         targetChatId,
         this.chatId,
-        posted.separateDescriptionMessageId,
+        posted.photoMessageIds[0]!,
         silent ? { disable_notification: true } : undefined,
       );
+      if (posted.separateDescriptionMessageId)
+        await this.tg.forwardMessage(
+          targetChatId,
+          this.chatId,
+          posted.separateDescriptionMessageId,
+          silent ? { disable_notification: true } : undefined,
+        );
+    } catch (e) {
+      if (e instanceof TelegramError) {
+        throw new MessageDoesNotExistError();
+      }
+      throw e;
+    }
   }
 
   async checkExists(posted: PostedMessages) {
@@ -57,7 +65,7 @@ export class MarketplaceChannel implements Marketplace {
       await this.forwardToInternal(this.serviceChatId, posted, true);
       return true;
     } catch (e) {
-      if (e instanceof TelegramError) {
+      if (e instanceof MessageDoesNotExistError) {
         return false;
       }
       throw e;
@@ -98,29 +106,36 @@ export class MarketplaceChannel implements Marketplace {
   }
 
   private async editLayout(layout: MessageLayout, posted: PostedMessages, sold: boolean) {
-    await this.tg.editMessageCaption(
-      this.chatId,
-      posted.photoMessageIds[0],
-      undefined,
-      layout.caption,
-      {
-        parse_mode: "MarkdownV2",
-      },
-    );
-    if (layout.separateDescription) {
-      if (!posted.separateDescriptionMessageId) {
-        throw new Error(
-          "Layout calculated separate messageId to be present " +
-            "but separateDescriptionMessageId is null",
+    try {
+      await this.tg.editMessageCaption(
+        this.chatId,
+        posted.photoMessageIds[0],
+        undefined,
+        layout.caption,
+        {
+          parse_mode: "MarkdownV2",
+        },
+      );
+      if (layout.separateDescription) {
+        if (!posted.separateDescriptionMessageId) {
+          throw new Error(
+            "Layout calculated separate messageId to be present " +
+              "but separateDescriptionMessageId is null",
+          );
+        }
+        await this.tg.editMessageText(
+          this.chatId,
+          posted.separateDescriptionMessageId,
+          undefined,
+          layout.separateDescription,
+          sold ? { parse_mode: "MarkdownV2" } : undefined,
         );
       }
-      await this.tg.editMessageText(
-        this.chatId,
-        posted.separateDescriptionMessageId,
-        undefined,
-        layout.separateDescription,
-        sold ? { parse_mode: "MarkdownV2" } : undefined,
-      );
+    } catch (e) {
+      if (e instanceof TelegramError && e.description.includes("MESSAGE_ID_INVALID")) {
+        throw new MessageDoesNotExistError();
+      }
+      throw e;
     }
   }
 

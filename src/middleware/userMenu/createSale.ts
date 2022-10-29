@@ -111,12 +111,12 @@ export async function createSaleTestHandler(
   ctx: NarrowedContext<Ctx, MountMap["text"]>,
   facade: SalesFacade,
 ) {
-  if (ctx.from.id.toString(10) === process.env["TEST_SALE_CHAT_ID"]) {
+  if (ctx.from.id.toString(10) === process.env["DEVELOPER_CHAT_ID"]) {
     const managedSale = await facade.addNewSale({
       ...testSale,
       user: {
-        id: parseInt(process.env["TEST_SALE_CHAT_ID"]!, 10),
-        username: process.env["TEST_SALE_USERNAME"]!,
+        id: parseInt(process.env["DEVELOPER_CHAT_ID"]!, 10),
+        username: process.env["DEVELOPER_USERNAME"]!,
       },
     });
     await facade.forwardToIncludingSeparateDescription(managedSale!.posted, ctx.from!.id);

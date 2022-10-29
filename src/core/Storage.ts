@@ -2,7 +2,7 @@ import { ManagedSale, PostedMessages } from "./types";
 import { Sale } from "../sale/types";
 import fsSync, { promises as fs } from "fs";
 import _ from "lodash";
-import { SaleNotExistError } from "./SaleNotExistError";
+import { SaleNotExistError } from "./errors/SaleNotExistError";
 
 interface DbSchema {
   sales: ManagedSale[];

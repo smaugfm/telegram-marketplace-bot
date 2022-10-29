@@ -32,5 +32,17 @@ bot.use((ctx, next) => {
 });
 bot.use(stage.middleware());
 bot.use(userMenuMiddleware(stage, facade));
+bot.catch(async (err, ctx) => {
+  log.error("Unhandled error in middleware: ", err);
+  await ctx.reply("Нажаль сталася неочікувана помилка в роботі бота. Розробники вже розбираються.");
+  if (ctx.scene.current) {
+    ctx.scene.leave();
+  }
+  await ctx.telegram.sendMessage(
+    process.env["DEVELOPER_CHAT_ID"]!,
+    // @ts-ignore
+    `Unhandled error in marketplace bot: ${err["message"]}`,
+  );
+});
 
 await bot.launch();
