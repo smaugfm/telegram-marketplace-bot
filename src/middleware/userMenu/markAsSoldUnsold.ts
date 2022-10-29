@@ -1,15 +1,41 @@
-import {SalesManager} from "../../core/SalesManager";
-import {Markup, Scenes} from "telegraf";
-import {Ctx} from "../../telegraf/Context";
-import {log} from "../../log/log";
-import {SaleNotExistError} from "../../core/SaleNotExistError";
+import { SalesFacade } from "../../core/SalesFacade";
+import { Markup, NarrowedContext, Scenes } from "telegraf";
+import { Ctx } from "../../telegraf/Context";
+import { log } from "../../log/log";
+import { SaleNotExistError } from "../../core/SaleNotExistError";
+import { MountMap } from "telegraf/typings/telegram-types";
+import { replyNoAccessToChannel } from "./util";
 
-export function createMarkAsSoldUnsoldScene(
-  markAsSoldSceneId: string,
-  markAsUnsoldSceneId: string,
-  sales: SalesManager,
+const markAsSoldSceneId = "markAsSoldScene";
+const markAsUnsoldSceneId = "markAsUnsoldScene";
+
+export async function markAsSoldUnsoldHandler(
+  ctx: NarrowedContext<Ctx, MountMap["text"]>,
+  facade: SalesFacade,
+  asSold: boolean,
+) {
+  if (!(await facade.userHasAccessToChannel(ctx.from.id))) {
+    return replyNoAccessToChannel(ctx);
+  }
+
+  const managedSales = await facade.getActiveSales(ctx.from.id, !asSold);
+  if (managedSales.length === 0) {
+    return await ctx.reply(
+      asSold ? "У тебе нема активних оголошень" : "У тебе нема оголошень що помічені як продані",
+    );
+  }
+  return ctx.scene.enter(asSold ? markAsSoldSceneId : markAsUnsoldSceneId, {
+    markAsSoldUnsoldScene: {
+      currentPosted: managedSales.map(s => s.posted),
+      saleIds: managedSales.map(s => s.id),
+    },
+  });
+}
+
+export function markAsSoldUnsoldScene(
+  facade: SalesFacade,
   sold: boolean,
-): Scenes.BaseScene<Ctx> {
+) {
   const scene = new Scenes.BaseScene<Ctx>(sold ? markAsSoldSceneId : markAsUnsoldSceneId);
   scene.enter(async ctx => {
     await ctx.reply(
@@ -21,7 +47,7 @@ export function createMarkAsSoldUnsoldScene(
     const state = ctx.scene.session.state.markAsSoldUnsoldScene;
     await Promise.all(
       state.currentPosted.map((posted, i) => {
-        sales.copyTo(posted, ctx.from!.id, {
+        facade.copyTo(posted, ctx.from!.id, {
           ...Markup.inlineKeyboard([
             Markup.button.callback(
               sold ? "продано" : "знову продається",
@@ -44,9 +70,9 @@ export function createMarkAsSoldUnsoldScene(
 
     if (state.saleIds.includes(saleId)) {
       try {
-        const sale = await sales.markSoldUnsold(saleId, sold);
+        const sale = await facade.markSoldUnsold(saleId, sold);
         if (sale) {
-          await sales.forwardToIncludingSeparateDescription(sale.posted, ctx.from!.id);
+          await facade.forwardToIncludingSeparateDescription(sale.posted, ctx.from!.id);
           return ctx.scene.leave();
         } else {
           return ctx.reply(

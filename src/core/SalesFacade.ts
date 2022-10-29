@@ -1,27 +1,23 @@
 import { ManagedSale, PostedMessages } from "./types";
-import { MarketplaceChannel } from "./MarketplaceChannel";
 import { Sale } from "../sale/types";
 import { Storage } from "./Storage";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
 import { epochDays, epochMinutes } from "../util";
+import { Marketplace } from "./interface/Marketplace";
 
-export class SalesManager {
+export class SalesFacade {
   public readonly maxSalesPerUser: number;
   private readonly storage: Storage;
-  private readonly channel: MarketplaceChannel;
+  private readonly channel: Marketplace;
 
-  constructor(maxSalesPerUser: number, storage: Storage, channel: MarketplaceChannel) {
+  constructor(maxSalesPerUser: number, storage: Storage, channel: Marketplace) {
     this.maxSalesPerUser = maxSalesPerUser;
     this.storage = storage;
     this.channel = channel;
   }
 
-  async userHasAdminRightsToChannel(userId: number): Promise<boolean> {
-    return this.channel.userHasAdminRightsToChannel(userId);
-  }
-
   async userHasAccessToChannel(userId: number): Promise<boolean> {
-    return this.channel.userHasAccessToChannel(userId);
+    return this.channel.userHasAccess(userId);
   }
 
   async canAddAnotherSale(userId: number): Promise<boolean> {
@@ -33,17 +29,17 @@ export class SalesManager {
   }
 
   async forwardToIncludingSeparateDescription(posted: PostedMessages, targetChatId: number) {
-    return this.channel.forwardToIncludingSeparateDescription(posted, targetChatId);
+    return this.channel.forwardTo(posted, targetChatId);
   }
 
   async copyTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
-    return this.channel.copyTo(posted, targetChatId, extra);
+    return this.channel.copyFirstTo(posted, targetChatId, extra);
   }
 
   async addNewSale(sale: Sale): Promise<ManagedSale | undefined> {
     if (!(await this.canAddAnotherSale(sale.user.id))) return undefined;
 
-    const posted = await this.channel.post(sale);
+    const posted = await this.channel.postNewSale(sale);
     return this.storage.addSale(sale.user.id, posted, sale);
   }
 
@@ -61,14 +57,6 @@ export class SalesManager {
     });
     if (sold) await this.channel.markSold(modified.posted, modified.sale);
     else await this.channel.markUnsold(modified.posted, modified.sale);
-    return modified;
-  }
-
-  async removeSale(saleId: number): Promise<ManagedSale> {
-    const modified = await this.storage.modifySale(saleId, {
-      removed: true,
-    });
-    await this.channel.remove(modified.posted);
     return modified;
   }
 }

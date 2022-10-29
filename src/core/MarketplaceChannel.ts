@@ -5,8 +5,9 @@ import { Sale } from "../sale/types";
 import { MessageLayout, PostedMessages } from "./types";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
 import { log } from "../log/log";
+import { Marketplace } from "./interface/Marketplace";
 
-export class MarketplaceChannel {
+export class MarketplaceChannel implements Marketplace {
   private readonly tg: Telegram;
   private readonly chatId: number;
 
@@ -29,27 +30,31 @@ export class MarketplaceChannel {
     return await this.removeMessages(posted);
   }
 
-  async forwardToIncludingSeparateDescription(posted: PostedMessages, targetChatId: number) {
+  async forwardTo(posted: PostedMessages, targetChatId: number) {
     await this.tg.forwardMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!);
     if (posted.separateDescriptionMessageId)
       await this.tg.forwardMessage(targetChatId, this.chatId, posted.separateDescriptionMessageId);
   }
 
-  copyTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
+  copyFirstTo(posted: PostedMessages, targetChatId: number, extra?: ExtraCopyMessage) {
     return this.tg.copyMessage(targetChatId, this.chatId, posted.photoMessageIds[0]!, extra);
   }
 
-  async userHasAdminRightsToChannel(userId: number) {
+  async userHasAdminRights(userId: number) {
     const acceptableStatuses = ["member", "creator", "administrator"];
     return await this.hasMemberStatus(userId, acceptableStatuses);
   }
 
-  async userHasAccessToChannel(userId: number) {
+  chatIdEqualsChannelChatId(chatId: number) {
+    return Promise.resolve(this.chatId === chatId);
+  }
+
+  async userHasAccess(userId: number) {
     const acceptableStatuses = ["member", "creator", "administrator"];
     return await this.hasMemberStatus(userId, acceptableStatuses);
   }
 
-  async post(sale: Sale): Promise<PostedMessages> {
+  async postNewSale(sale: Sale): Promise<PostedMessages> {
     const layout = this.getSaleMessageLayout(sale, false);
     return await this.postLayout(layout);
   }
