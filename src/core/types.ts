@@ -21,3 +21,15 @@ export type MessageLayout = {
   caption: string;
   separateDescription?: string;
 };
+
+export type MarkAsUnsoldResult = CannotAddNewSale | TooOld | MarkedAsUnsold;
+export type CannotAddNewSale = {
+  type: "cannotAndNewSale";
+};
+export type TooOld = {
+  type: "tooOld";
+};
+export type MarkedAsUnsold = {
+  type: "markedAsUnsold";
+  sale: ManagedSale;
+};

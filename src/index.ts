@@ -27,7 +27,8 @@ const stage = new Scenes.Stage<Ctx>();
 
 bot.use(new LocalSession({ database: "session.json" }).middleware());
 bot.use((ctx, next) => {
-  log.debug("", ctx.message);
+  if (ctx.message) log.debug("", ctx.message);
+  else log.debug("", ctx.update);
   return next();
 });
 bot.use(stage.middleware());

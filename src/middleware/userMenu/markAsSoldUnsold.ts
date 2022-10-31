@@ -68,15 +68,28 @@ export function markAsSoldUnsoldScene(facade: SalesFacade, sold: boolean) {
 
     if (state.saleIds.includes(saleId)) {
       try {
-        const sale = await facade.markSoldUnsold(saleId, sold);
-        if (sale) {
+        if (sold) {
+          const sale = await facade.markSold(saleId);
           await facade.forwardToIncludingSeparateDescription(sale.posted, ctx.from!.id);
           return ctx.scene.leave();
         } else {
-          return ctx.reply(
-            "Оголошення що були помічені як продані більш ніж 2 дні тому " +
-              "вже не можна повернути у продаж. Ти можеш створити нове оголошення.",
-          );
+          const result = await facade.markUnsold(ctx.callbackQuery.from.id, saleId);
+          switch (result.type) {
+            case "cannotAndNewSale":
+              return ctx.reply(
+                `Ти вже продаєш ${facade.maxSalesPerUser} товарів` +
+                  "виставляти більше оголошень не можна. " +
+                  "Видали якесь поточне оголошення щоб виставити нове.",
+              );
+            case "tooOld":
+              return ctx.reply(
+                "Оголошення що були помічені як продані більш ніж 2 дні тому " +
+                  "вже не можна повернути у продаж. Ти можеш створити нове оголошення.",
+              );
+            case "markedAsUnsold":
+              await facade.forwardToIncludingSeparateDescription(result.sale.posted, ctx.from!.id);
+              return ctx.scene.leave();
+          }
         }
       } catch (e) {
         if (e instanceof SaleNotExistError || e instanceof MessageDoesNotExistError) {

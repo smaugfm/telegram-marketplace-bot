@@ -1,4 +1,4 @@
-import { ManagedSale, PostedMessages } from "./types";
+import { ManagedSale, MarkAsUnsoldResult, PostedMessages } from "./types";
 import { Sale } from "../sale/types";
 import { Storage } from "./Storage";
 import { ExtraCopyMessage } from "telegraf/typings/telegram-types";
@@ -56,15 +56,23 @@ export class SalesFacade {
     return this.storage.addSale(sale.user.id, posted, sale);
   }
 
-  async canMarkUnsold(saleId: number): Promise<boolean> {
-    const sale = await this.storage.getSale(saleId);
-    //with a safety buffer of 1 hour
-    return Date.now() - sale.soldAt < epochDays(2) - epochMinutes(60);
+  async markSold(saleId: number): Promise<ManagedSale> {
+    return this.markSoldUnsold(saleId, true);
   }
 
-  async markSoldUnsold(saleId: number, sold: boolean): Promise<ManagedSale | undefined> {
-    if (!sold && !(await this.canMarkUnsold(saleId))) return undefined;
+  async markUnsold(userId: number, saleId: number): Promise<MarkAsUnsoldResult> {
+    if (!(await this.markedAsSoldTooOld(saleId))) return { type: "tooOld" };
+    if (!(await this.canAddAnotherSale(userId))) {
+      return { type: "cannotAndNewSale" };
+    }
 
+    return {
+      type: "markedAsUnsold",
+      sale: await this.markSoldUnsold(saleId, false),
+    };
+  }
+
+  private async markSoldUnsold(saleId: number, sold: boolean): Promise<ManagedSale> {
     const modified = await this.storage.modifySale(saleId, {
       soldAt: sold ? Date.now() : 0,
     });
@@ -72,4 +80,11 @@ export class SalesFacade {
     else await this.channel.markUnsold(modified.posted, modified.sale);
     return modified;
   }
+
+  private async markedAsSoldTooOld(saleId: number): Promise<boolean> {
+    const sale = await this.storage.getSale(saleId);
+    //with a safety buffer of 1 hour
+    return Date.now() - sale.soldAt < epochDays(2) - epochMinutes(60);
+  }
+
 }
