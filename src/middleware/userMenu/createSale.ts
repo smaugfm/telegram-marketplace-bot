@@ -19,7 +19,7 @@ export async function createSaleHandler(
 
   if (await facade.canAddAnotherSale(ctx.from.id)) {
     await ctx.reply(
-      "Для створення нового оголошення заповни всі дані. Якщо хочеш вийти з форми відправ /exit",
+      "Для створення нового оголошення заповни всі дані. Якщо хочеш вийти з форми відправ /abort",
     );
     return ctx.scene.enter(createWizardId, {
       createWizard: {
@@ -47,7 +47,7 @@ export function createSaleScene(facade: SalesFacade) {
     .text(
       "Назва товару:",
       (ctx, title) => (ctx.scene.session.state.createWizard.sale.title = title),
-      "Будь ласка відправ назву товару або /exit щоб вийти",
+      "Будь ласка відправ назву товару або /abort щоб вийти",
     )
     .enumeration(
       Object.values(SaleCategory),
@@ -62,17 +62,17 @@ export function createSaleScene(facade: SalesFacade) {
     .number(
       "Ціна у вибраній валюті:",
       (ctx, price) => (ctx.scene.session.state.createWizard.sale.price!.value = price),
-      "Будь ласка відправ ціну цифрами або /exit",
+      "Будь ласка відправ ціну цифрами або /abort",
     )
     .text(
       "Спосіб отримання:",
       (ctx, delivery) => (ctx.scene.session.state.createWizard.sale.delivery = delivery),
-      "Будь ласка вкажи спосіб отримання товару або відправ /exit",
+      "Будь ласка вкажи спосіб отримання товару або відправ /abort",
     )
     .text(
       "Розташування:",
       (ctx, location) => (ctx.scene.session.state.createWizard.sale.location = location),
-      "Будь ласка вкажи спосіб отримання товару або відправ /exit",
+      "Будь ласка вкажи спосіб отримання товару або відправ /abort",
     )
     .photos(
       "Надішли фотки товару:",
@@ -85,17 +85,25 @@ export function createSaleScene(facade: SalesFacade) {
         ctx.scene.session.state.createWizard.sale.photos!.push(photo.file_id);
       },
       "Скинь хоча б одну",
-      "Будь ласка скидай тільки фотки або відправ /exit",
+      "Будь ласка скидай тільки фотки або відправ /abort",
     )
     .text(
       "Опис:",
       (ctx, description) => (ctx.scene.session.state.createWizard.sale.description = description),
-      "Будь ласка відправ опис або /exit",
+      "Будь ласка відправ опис або /abort",
     )
-    .build(createWizardId, async (ctx, cancelled) => {
-      if (cancelled) return;
-
-      const sale = ctx.scene.session.state.createWizard.sale as Sale;
+    .confirmation(
+      "Виглядає добре?",
+      "Так, виставляй",
+      "Ні, хочу переробити",
+      ctx => {
+        const sale = ctx.scene.session.state.createWizard.sale;
+        return facade.previewNewSale(sale as Sale, ctx.from!.id);
+      },
+      "Обери один із варіантів",
+    )
+    .build(createWizardId, async (ctx, sale) => {
+      if (!sale) return;
       const managedSale = await facade.addNewSale(sale);
       if (!managedSale)
         return ctx.reply(

@@ -5,6 +5,7 @@ import { PostedMessages } from "../core/types";
 export interface CtxSceneSession extends Scenes.WizardSessionData {
   state: {
     createWizard: {
+      aborted: boolean;
       sale: Partial<Sale>;
     };
     markAsSoldUnsoldScene: {

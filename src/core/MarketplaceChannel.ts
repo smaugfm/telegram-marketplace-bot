@@ -90,9 +90,13 @@ export class MarketplaceChannel implements Marketplace {
     return await this.hasMemberStatus(userId, acceptableStatuses);
   }
 
-  async postNewSale(sale: Sale): Promise<PostedMessages> {
-    const layout = this.getSaleMessageLayout(sale, false);
-    return await this.postLayout(layout);
+  async getSaleLayout(sale: Sale): Promise<MessageLayout> {
+    return this.getSaleMessageLayout(sale, false);
+  }
+
+  async postNewSale(sale: Sale, toChatId: number = this.chatId): Promise<PostedMessages> {
+    const layout = await this.getSaleLayout(sale);
+    return await this.postLayout(layout, toChatId);
   }
 
   private async hasMemberStatus(userId: number, acceptableStatuses: string[]) {
@@ -139,17 +143,17 @@ export class MarketplaceChannel implements Marketplace {
     }
   }
 
-  private async postLayout(layout: MessageLayout): Promise<PostedMessages> {
+  private async postLayout(layout: MessageLayout, toChatId: number): Promise<PostedMessages> {
     let separateDescriptionMessageId: number | undefined;
     const photoMessages = await this.sendMediaGroupWithCaption(
       this.tg,
-      this.chatId,
+      toChatId,
       layout.photoFileIds,
       layout.caption,
     );
     if (layout.separateDescription) {
       separateDescriptionMessageId = (
-        await this.tg.sendMessage(this.chatId, layout.separateDescription, {
+        await this.tg.sendMessage(toChatId, layout.separateDescription, {
           reply_to_message_id: photoMessages[0]!.message_id,
         })
       ).message_id;

@@ -3,6 +3,7 @@ import { PhotoSize } from "telegraf/typings/core/types/typegram";
 import { Ctx } from "./Context";
 import { SceneOptions } from "telegraf/typings/scenes/base";
 import _ from "lodash";
+import { Sale } from "../sale/types";
 
 export class CreateSaleWizardBuilder {
   private readonly steps: Step[] = [];
@@ -36,7 +37,7 @@ export class CreateSaleWizardBuilder {
     choices: T[],
     enter: string,
     onNext: OnNext<T>,
-    error = "Будь ласка вибери один з варіантів або відправ /exit",
+    error = "Будь ласка вибери один з варіантів або відправ /abort",
   ) {
     this.steps.push({
       type: "enum",
@@ -68,47 +69,70 @@ export class CreateSaleWizardBuilder {
     return this;
   }
 
+  confirmation(
+    enter: string,
+    confirmation: string,
+    abort: string,
+    onConfirm: (ctx: Ctx) => Promise<unknown>,
+    error: string,
+  ) {
+    this.steps.push({
+      type: "confirmation",
+      enter,
+      error,
+      confirmation,
+      onConfirm,
+      abort,
+    });
+    return this;
+  }
+
   build(
     id: string,
-    onFinish: (ctx: Ctx, cancelled: boolean) => Promise<unknown> | unknown,
+    onFinish: (ctx: Ctx, sale?: Sale) => Promise<unknown> | unknown,
   ): Scenes.WizardScene<Ctx> {
     if (this.steps.length <= 0) throw new Error("Cannot create WizardScene without any steps.");
+    const confirmationIndex = this.steps.findIndex(x => x.type === "confirmation");
+    if (confirmationIndex > 0 && confirmationIndex !== this.steps.length - 1) {
+      throw new Error("Confirmation step must be the last step.");
+    }
 
     const scene = new Scenes.WizardScene<Ctx>(id, {} as SceneOptions<Ctx>);
     scene.enter(async ctx => {
+      ctx.scene.session.state.createWizard.aborted = false;
       await this.enter?.(ctx);
-      return this.next(ctx, undefined, undefined, this.steps[0], () => {
+      return this.next(ctx, this.steps[0], () => {
         // do nothing
       });
     });
 
     for (let i = 0; i < this.steps.length; i++) {
-      const prevStep = this.steps[i - 1];
       const step = this.steps[i]!;
       const nextStep = this.steps[i + 1];
-      scene.steps.push(this.createHandler(prevStep, step, nextStep));
+      scene.steps.push(this.createHandler(step, nextStep));
     }
 
-    scene.leave((ctx, next) => {
-      onFinish(ctx, ctx.wizard.cursor + 1 < (ctx.wizard["steps"] as Array<unknown>).length);
+    scene.leave(async (ctx, next) => {
+      const aborted = ctx.scene.session.state.createWizard.aborted;
+      if (aborted) {
+        await ctx.reply("Форму відмінено", Markup.removeKeyboard());
+        onFinish(ctx, undefined);
+      } else {
+        await ctx.reply("Форму завершено", Markup.removeKeyboard());
+        onFinish(ctx, ctx.scene.session.state.createWizard.sale as Sale);
+      }
       return next();
     });
 
     return scene;
   }
 
-  private createHandler(
-    prevStep: TextStep | NumberStep | EnumStep | PhotosStep | undefined,
-    step: TextStep | NumberStep | EnumStep | PhotosStep,
-    nextStep: TextStep | NumberStep | EnumStep | PhotosStep | undefined,
-  ): Middleware<Ctx> {
+  private createHandler(step: Step, nextStep: Step | undefined): Middleware<Ctx> {
     switch (step.type) {
       case "text":
         return this.createBaseHandler(step, handler => {
           handler.on("text", async ctx => {
-            return this.next(ctx, prevStep, step, nextStep, () =>
-              step.onNext(ctx, ctx.message.text),
-            );
+            return this.next(ctx, nextStep, () => step.onNext(ctx, ctx.message.text));
           });
         });
       case "number":
@@ -118,21 +142,21 @@ export class CreateSaleWizardBuilder {
             if (isNaN(num)) {
               return next();
             } else {
-              return this.next(ctx, prevStep, step, nextStep, () => step.onNext(ctx, num));
+              return this.next(ctx, nextStep, () => step.onNext(ctx, num));
             }
           });
         });
       case "enum":
         return this.createBaseHandler(step, handler => {
           handler.hears(step.choices, ctx =>
-            this.next(ctx, prevStep, step, nextStep, () => step.onNext(ctx, ctx.message.text)),
+            this.next(ctx, nextStep, () => step.onNext(ctx, ctx.message.text)),
           );
         });
       case "photos":
         return this.createBaseHandler(step, handler => {
           handler.hears(step.finishButton, async ctx => {
             if (step.isEnoughPhotos(ctx)) {
-              return this.next(ctx, prevStep, step, nextStep, () => {
+              return this.next(ctx, nextStep, () => {
                 // do nothing
               });
             } else {
@@ -142,6 +166,15 @@ export class CreateSaleWizardBuilder {
           handler.on("photo", async ctx => {
             await step.onPhoto(ctx, this.getBiggestPhotoSize(ctx.message.photo)!);
           });
+        });
+      case "confirmation":
+        return this.createBaseHandler(step, handler => {
+          handler.hears(step.confirmation, async ctx =>
+            this.next(ctx, nextStep, () => {
+              // do nothing
+            }),
+          );
+          handler.hears(step.abort, ctx => this.abort(ctx));
         });
       default:
         throw new Error("Unknown step type " + step);
@@ -154,7 +187,7 @@ export class CreateSaleWizardBuilder {
 
   private createBaseHandler(step: BaseStep, main: (handler: Composer<Ctx>) => void) {
     const handler = new Composer<Ctx>();
-    this.handleExit(handler);
+    this.handleAbort(handler);
     main(handler);
     this.handleError(handler, step.error);
 
@@ -163,8 +196,6 @@ export class CreateSaleWizardBuilder {
 
   private async next(
     ctx: Ctx,
-    prevStep: Step | undefined,
-    curStep: Step | undefined,
     nextStep: Step | undefined,
     curStepAction: () => Promise<unknown> | unknown,
   ) {
@@ -172,10 +203,18 @@ export class CreateSaleWizardBuilder {
     if (nextStep) {
       switch (nextStep.type) {
         case "text":
-          await ctx.reply(nextStep.enter, this.removeKeyboard(curStep, prevStep));
-          break;
         case "number":
-          await ctx.reply(nextStep.enter, this.removeKeyboard(curStep, prevStep));
+          await ctx.reply(nextStep.enter, Markup.removeKeyboard());
+          break;
+        case "confirmation":
+          await ctx.reply(
+            nextStep.enter,
+            Markup.keyboard([
+              Markup.button.text(nextStep.confirmation),
+              Markup.button.text(nextStep.abort),
+            ]).resize(),
+          );
+          await nextStep.onConfirm(ctx);
           break;
         case "enum":
           await ctx.reply(
@@ -195,15 +234,9 @@ export class CreateSaleWizardBuilder {
     } else return ctx.scene.leave();
   }
 
-  private removeKeyboard(curStep?: Step, prevStep?: Step) {
-    return curStep?.type === "photos" || prevStep?.type === "enum"
-      ? Markup.removeKeyboard()
-      : undefined;
-  }
-
-  private handleExit(handler: Composer<Ctx>) {
-    handler.command("exit", ctx => {
-      ctx.scene.leave();
+  private handleAbort(handler: Composer<Ctx>) {
+    handler.command("abort", ctx => {
+      this.abort(ctx);
     });
   }
 
@@ -211,6 +244,11 @@ export class CreateSaleWizardBuilder {
     handler.use(ctx => {
       return ctx.reply(error);
     });
+  }
+
+  private abort(ctx: Ctx) {
+    ctx.scene.session.state.createWizard.aborted = true;
+    return ctx.scene.leave();
   }
 }
 
@@ -243,6 +281,13 @@ interface PhotosStep extends BaseStep {
   finishButton: string;
 }
 
-type Step = TextStep | NumberStep | EnumStep | PhotosStep;
+interface ConfirmationStep extends BaseStep {
+  type: "confirmation";
+  onConfirm: (ctx: Ctx) => Promise<unknown>;
+  confirmation: string;
+  abort: string;
+}
+
+type Step = TextStep | NumberStep | EnumStep | PhotosStep | ConfirmationStep;
 
 type OnNext<T> = (ctx: Ctx, result: T) => Promise<unknown> | unknown;

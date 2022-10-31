@@ -49,6 +49,10 @@ export class SalesFacade {
     return this.channel.copyFirstTo(posted, targetChatId, extra);
   }
 
+  async previewNewSale(sale: Sale, chatId: number): Promise<unknown> {
+    return this.channel.postNewSale(sale, chatId);
+  }
+
   async addNewSale(sale: Sale): Promise<ManagedSale | undefined> {
     if (!(await this.canAddAnotherSale(sale.user.id))) return undefined;
 

@@ -9,7 +9,7 @@ export interface Marketplace {
 
   remove(posted: PostedMessages): Promise<void>;
 
-  postNewSale(sale: Sale): Promise<PostedMessages>;
+  postNewSale(sale: Sale, chatId?: number): Promise<PostedMessages>;
 
   forwardTo(posted: PostedMessages, targetChatId: number): Promise<unknown>;
 
